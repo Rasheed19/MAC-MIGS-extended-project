@@ -5,7 +5,7 @@ from sklearn.ensemble import ExtraTreesRegressor
 from xgboost import XGBRegressor
 import xgboost as xgb
 from sklearn.svm import NuSVR
-from sklearn.model_selection import RepeatedKFold, cross_validate, train_test_split
+from sklearn.model_selection import RepeatedKFold, GridSearchCV, cross_validate, train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error, r2_score
 import numpy as np
 import matplotlib.pyplot as plt
@@ -73,22 +73,46 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
          y_train_pred, y_test_pred:   the predicted values of EOL for the training and test respectively
          fname:    name to save the figure with
     '''
+    def axis_to_fig(axis):
+       fig = axis.figure
+       def transform(coord):
+            return fig.transFigure.inverted().transform(
+                axis.transAxes.transform(coord))
+       return transform
+    
+    def add_sub_axes(axis, rect):
+        fig = axis.figure
+        left, bottom, width, height = rect
+        trans = axis_to_fig(axis)
+        figleft, figbottom = trans((left, bottom))
+        figwidth, figheight = trans([width,height]) - trans([0,0])
+        return fig.add_axes([figleft, figbottom, figwidth, figheight])
 
-    fig, ax = plt.subplots(1, 2, figsize=(15,10))
 
-    for i, s, pair in zip((0, 1), ('(train)', '(test)'), ((y_train_true, y_train_pred), (y_test_true, y_test_pred))):
-        ax[i].scatter(pair[0], pair[1], s=100, color='purple', alpha=0.5, zorder=10)
+    fig, axes = plt.subplots(1, 2, figsize=(15,10))
+
+    for axis, s, pair in zip(axes.ravel(), ('(train)', '(test)'), ((y_train_true, y_train_pred), (y_test_true, y_test_pred))):
+        
+        axis.scatter(pair[0], pair[1], s=100, color='purple', alpha=0.5, zorder=10)
         lims = [
-        np.min([ax[i].get_xlim(), ax[i].get_ylim()]),  # min of both axes
-        np.max([ax[i].get_xlim(), ax[i].get_ylim()]),  # max of both axes
+        np.min([axis.get_xlim(), axis.get_ylim()]),  # min of both axes
+        np.max([axis.get_xlim(), axis.get_ylim()]),  # max of both axes
         ]
         # now plot both limits against each other
-        ax[i].plot(lims, lims, 'k-', alpha=0.75, zorder=0)
-        ax[i].set_aspect('equal')
-        ax[i].set_xlim(lims)
-        ax[i].set_ylim(lims)
-        ax[i].set_xlabel('Experimental EOL ' + s, fontsize=12)
-        ax[i].set_ylabel('Predicted EOL ' + s, fontsize=12)
+        axis.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+        axis.set_aspect('equal')
+        axis.set_xlim(lims)
+        axis.set_ylim(lims)
+        axis.set_xlabel('Experimental EOL ' + s, fontsize=12)
+        axis.set_ylabel('Predicted EOL ' + s, fontsize=12)
+
+        subaxis = add_sub_axes(axis, [0.2, 0.6, 0.3, 0.2])
+        res = pair[0]-pair[1]
+        x_min = min(res)
+        x_max = max(res)
+        subaxis.hist(res, bins=8, range=(x_min, x_max), density=True, color='purple', alpha=0.98)
+        subaxis.set_xlabel('Residual')
+        subaxis.set_ylabel('Density')
 
     plt.savefig(fname="plots/"+"pred_vs_true_"+fname, bbox_inches='tight')
     plt.show()
@@ -274,6 +298,36 @@ def fit_nusvr(df, test_size, feature_selection, scaling, params, fname, plot=Fal
         pickle.dump(model, fp)
     
     return model, metrics
+
+def hyperparameter_tuning(df, estimator, param_grid, scoring, cv, feature_selection=False, k=None):
+    '''
+    A function that performs grid search over the space of parameters given.
+
+    Arguments:
+              df:                 dataframe from which train and test data will be extracted 
+              estimator:          the model object
+              param_grid:         a dictionary containing the parameter spaces 
+              scoring:            the scoring function to use for picking the best parameters
+              cv:                 number of folds to use with cross-validation process
+              feature_selection:  a boolean to specify whether to carry out feature selection or not 
+              k:                  fraction of features to select if feature selection is set to true
+
+    Returns: best parameter setting, best score
+    '''
+
+    # get the features and the target 
+    X, y = df.drop(df.columns[-1], axis=1).values, df[df.columns[-1]].values
+
+    # feature selection option
+    if feature_selection == True:
+        X, _, _ = utils_gn.univariate_feature_selection(df, k=k)
+    
+    # define the GridSearchCV object and fit to the data 
+    gs = GridSearchCV(estimator=estimator, param_grid=param_grid, scoring=scoring, cv=cv).fit(X, y)
+
+    return gs.best_params_, gs.best_score_
+
+
 
 
 
