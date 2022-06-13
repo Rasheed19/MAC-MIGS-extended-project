@@ -17,6 +17,7 @@ importlib.reload(utils_gn)
 xgb.set_config(verbosity=0)
 
 
+<<<<<<< HEAD
 def exponential_decay(x, a, k, b):
     '''
     A function that returns an exponential decay function
@@ -33,6 +34,16 @@ def linear_model(x, a, b):
     '''
     A function that returns a linear function
     '''
+=======
+
+def exponential_decay(x, a, k, b):
+    return a * np.exp(-k*x) + b
+
+def exponential_growth(x, a, k, b):
+    return a * np.exp(k*x) + b
+
+def linear_model(x, a, b):
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
     return a + b*x
 
 def curve_fitting(model_func, 
@@ -40,9 +51,12 @@ def curve_fitting(model_func,
                   x_data,
                   y_data,
                   plot=False):
+<<<<<<< HEAD
     '''
     A function that fits a given function to a data and return the corresponding estimated parameters
     '''
+=======
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
 
     # curve fit
     popt, pcov = curve_fit(model_func, x_data, y_data, initial_guess, maxfev=50000)
@@ -76,14 +90,22 @@ def metrics_calculator(y_true, y_pred):
                'RMSE': np.sqrt(mean_squared_error(y_true, y_pred)), 'R2 score': r2_score(y_true, y_pred)}
 
 
+<<<<<<< HEAD
 def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test_pred, fname, plot_mode=1):
+=======
+def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test_pred, fname):
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
     '''
     A function that plots predicted EOL against experimental EOL.
     Args:
          y_train_true, y_test_true:   the true values of EOL for the training and test respectively
          y_train_pred, y_test_pred:   the predicted values of EOL for the training and test respectively
+<<<<<<< HEAD
          fname:                       name to save the figure with
          plot_mode:                   plot type to use 
+=======
+         fname:    name to save the figure with
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
     '''
     def axis_to_fig(axis):
        fig = axis.figure
@@ -99,6 +121,7 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
         figleft, figbottom = trans((left, bottom))
         figwidth, figheight = trans([width,height]) - trans([0,0])
         return fig.add_axes([figleft, figbottom, figwidth, figheight])
+<<<<<<< HEAD
     
     if plot_mode == 0:
 
@@ -144,6 +167,34 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
             subaxis.hist(res, bins=8, range=(x_min, x_max), density=True, color='purple', alpha=0.8, ec='black')
             subaxis.set_xlabel('Residual', fontsize=12)
             subaxis.set_ylabel('Density', fontsize=12)
+=======
+
+
+    fig, axes = plt.subplots(1, 2, figsize=(15,10))
+
+    for axis, s, pair in zip(axes.ravel(), ('(train)', '(test)'), ((y_train_true, y_train_pred), (y_test_true, y_test_pred))):
+        
+        axis.scatter(pair[0], pair[1], s=100, color='purple', alpha=0.5, zorder=10)
+        lims = [
+        np.min([axis.get_xlim(), axis.get_ylim()]),  # min of both axes
+        np.max([axis.get_xlim(), axis.get_ylim()]),  # max of both axes
+        ]
+        # now plot both limits against each other
+        axis.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+        axis.set_aspect('equal')
+        axis.set_xlim(lims)
+        axis.set_ylim(lims)
+        axis.set_xlabel('Experimental EOL ' + s, fontsize=12)
+        axis.set_ylabel('Predicted EOL ' + s, fontsize=12)
+
+        subaxis = add_sub_axes(axis, [0.2, 0.6, 0.3, 0.2])
+        res = pair[0]-pair[1]
+        x_min = min(res)
+        x_max = max(res)
+        subaxis.hist(res, bins=8, range=(x_min, x_max), density=True, color='purple', alpha=0.98)
+        subaxis.set_xlabel('Residual')
+        subaxis.set_ylabel('Density')
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
 
     plt.savefig(fname="plots/"+"pred_vs_true_"+fname, bbox_inches='tight')
     plt.show()
@@ -153,10 +204,17 @@ def repeated_kfold_cross_validation(model, df, n_splits, n_repeats, feature_sele
     A function that perfroms k-fold cross validation n_repeats times.
 
     Arguments:
+<<<<<<< HEAD
               model:              fitted model to be validated 
               df:                 dataframe containing features and target to be used for validation
               n_splits:           number of splits to be used during validation
               n_repeats:          how many times to repeat the process of k-fold cross validation
+=======
+              model:  fitted model to be validated 
+              df:     dataframe containing features and target to be used for validation
+              n_splits: number of splits to be used during validation
+              n_repeats: how many times to repeat the process of k-fold cross validation
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
               feature_selection:  a boolean to specify whether to perfrom feature selection or not
               scaling:            a boolean to specify whether to perform data scaling or not
               k:                  fraction of features to select if feature selection is set to true
@@ -242,6 +300,7 @@ def fit_tree_based_regression(df, test_size, feature_selection, scaling, params,
     print('Tree-based regression has ended after {} seconds'.format(np.round(end_time - start_time, 2)))
     
     # calculate metrics 
+<<<<<<< HEAD
     metrics = metrics_calculator(y_train, y_pred_train), metrics_calculator(y_test, y_pred_test)
     print('------------------')
     print('Model metrics:')
@@ -250,6 +309,13 @@ def fit_tree_based_regression(df, test_size, feature_selection, scaling, params,
     pprint.pprint(metrics[0])
     print('Test:')
     pprint.pprint(metrics[1])
+=======
+    metrics = metrics_calculator(y_test, y_pred_test)
+    print('------------------')
+    print('Model metrics:')
+    print('------------------')
+    pprint.pprint(metrics)
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
     
     
     # option to plot feature importance, plot the first 30 most important features
@@ -312,6 +378,7 @@ def fit_nusvr(df, test_size, feature_selection, scaling, params, fname, plot=Fal
     end_time = time.time()
     print('NuSVR training has ended after {} seconds'.format(np.round(end_time - start_time, 2)))
     
+<<<<<<< HEAD
    # calculate metrics 
     metrics = metrics_calculator(y_train, y_pred_train), metrics_calculator(y_test, y_pred_test)
     print('------------------')
@@ -321,6 +388,14 @@ def fit_nusvr(df, test_size, feature_selection, scaling, params, fname, plot=Fal
     pprint.pprint(metrics[0])
     print('Test:')
     pprint.pprint(metrics[1])
+=======
+    # calculate metrics 
+    metrics = metrics_calculator(y_test, y_pred_test)
+    print('------------------')
+    print('Model metrics:')
+    print('------------------')
+    pprint.pprint(metrics)
+>>>>>>> b19519e2217ab04fda09bd35908c42740e59fe28
     
     if params['kernel']=='linear' and plot==True:
         features, feature_importance = utils_gn.feature_importance_ordering(df.columns[:-1], np.abs(np.ravel(model.coef_)))
