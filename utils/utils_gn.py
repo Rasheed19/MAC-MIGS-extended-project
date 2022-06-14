@@ -456,8 +456,62 @@ def in_cycle_data_exploration(data_dict, sample_cycle, fname):
     fig.tight_layout(pad=0.5)
     plt.savefig(fname="plots/"+fname, bbox_inches='tight')
     plt.show()
-    
 
+def individual_summary_data_exploration(data_dict, fname):
+    '''
+    This function visualizes summary data 
+
+    Args:
+         data_dict:     dictionary of data
+         fname:         string to save the plot with
+    '''
+
+
+    # get the  dictionary of colours 
+    colour_dict = dict_of_colours(data_dict)
+
+    # create a dictionary of full feature names and units 
+    name_unit_dict = {'IR': r'Internal resistance ($\Omega$)', 'QDischarge': r'Discharge capacity ($Ah$)',
+                      'Tavg': r'Average temperature ($^{\circ}C$)', 'Tmin': r'Minimum temperature ($^{\circ}C$)',
+                      'Tmax': r'Maximum temperature ($^{\circ}C$)', 'chargetime': r'Charge time (min)'}
+    
+    fig, ax = plt.subplots(3, 2, figsize=(12, 12))
+
+    i = 0
+    for feature in name_unit_dict.keys():
+        if feature not in ['QCharge', 'cycle']:
+            for cell in data_dict.keys():
+                ax[i//2, i%2].plot(data_dict[cell]['summary'][feature][:500], 'o', linewidth=1, markersize=2, color=colour_dict[cell])
+            
+            if feature == 'QDischarge':
+                ax[i//2, i%2].set_ylim([0.8, 1.1])
+
+            elif feature == 'chargetime':
+                ax[i//2, i%2].set_ylim([8.0, 14])
+
+            ax[i//2, i%2].set_xlabel('Cycles', fontsize=12)
+            ax[i//2, i%2].set_ylabel(name_unit_dict[feature], fontsize=12)
+
+            i += 1
+    
+    fig.tight_layout(pad=0.5)
+    plt.savefig(fname="plots/"+fname, bbox_inches='tight')
+    plt.show()
+
+
+def plot_eol_cell_frequency():
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+
+    batch_names = ['Batch 1', 'Batch 2', 'Batch 3']
+    cell_frequency = [len(read_data(fname).keys()) for fname in ['batch1_100cycles.pkl', 'batch2_100cycles.pkl', 'batch3_100cycles.pkl']]
+
+    ax[0].barh(batch_names, cell_frequency, color='purple', ec='black')
+    ax[0].set_xlabel('Frequency', fontsize=12)
+
+    ax[1].hist(utils_noah.cycle_life(read_data('data_100cycles.pkl'))['cycle_life'], color='purple', ec='black')
+    ax[1].set_xlabel('EOL of cells', fontsize=12)
+    ax[1].set_ylabel('Frequency', fontsize=12)
 
     
 
