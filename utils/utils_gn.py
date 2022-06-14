@@ -11,10 +11,11 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from functools import reduce
 import seaborn as sns
-from utils import utils_models
+from matplotlib import cm
+from utils import utils_models, utils_noah
 import importlib
 importlib.reload(utils_models)
-#sns.set(font_scale=1.2)
+importlib.reload(utils_noah)
 
 
 def read_data(fname, folder="data"):
@@ -392,10 +393,71 @@ def feature_importance_barchart(features, importance, importance_tag, fname):
                     va='center', xytext=(0, 10), textcoords='offset points')
     '''
         
-    ax.set_xlabel('Features', fontsize=11)
-    ax.set_ylabel(importance_tag, fontsize=11)
+    ax.set_xlabel('Features', fontsize=12)
+    ax.set_ylabel(importance_tag, fontsize=12)
     plt.savefig(fname="plots/"+"importance_"+fname, bbox_inches='tight')
     plt.show()
+
+def dict_of_colours(data_dict):
+    '''
+    This function returns a dictionry of colors which correspond to the EOL of cells
+    '''
+
+    # get the eol of cells and normalize it
+    eol = utils_noah.cycle_life(data_dict)['cycle_life']
+    eol = (eol-eol.min()) / (eol.max() - eol.min())
+
+    # define the colour map and map it to the normalized eol
+    cmap = cm.get_cmap('viridis')
+    colours = cmap(eol)
+
+    return dict(zip(data_dict.keys(), colours))
+
+def in_cycle_data_exploration(data_dict, sample_cycle, fname):
+    '''
+    This function visualizes in-cycle data for a given cycle
+
+    Args:
+         data_dict:     dictionary of data
+         sample_cycle:  given cycle
+         fname:         string to save the plot with
+    '''
+
+    # get the  dictionary of colours 
+    colour_dict = dict_of_colours(data_dict)
+
+    # create a dictionary of full feature names and units 
+    name_unit_dict = {'I': r'Current ($A$)', 'Qc': r'Charge capacity ($Ah$)', 'Qd': r'Discharge capacity ($Ah$)',
+                      'T': r'Temperature ($^{\circ}C$)', 'V': r'Voltage (V)', 'Qdlin': r'Interpolated capacity ($Ah$)',
+                      'Tdlin': r'Interpolated temperature ($^{\circ}C$)', 'discharge_dQdV': r'dQ/dV ($AhV^{-1}$)'}
+    
+    fig, ax = plt.subplots(4, 2, figsize=(12, 12))
+
+    i = 0
+    for feature in name_unit_dict.keys():
+        if feature not in ['Qdlin', 'Tdlin', 'discharge_dQdV']:
+            for cell in data_dict.keys():
+                ax[i//2, i%2].plot(data_dict[cell]['cycle_dict'][sample_cycle]['t'], data_dict[cell]['cycle_dict'][sample_cycle][feature], color=colour_dict[cell])
+            
+            ax[i//2, i%2].set_xlabel('Time (min)', fontsize=12)
+            ax[i//2, i%2].set_ylabel(name_unit_dict[feature], fontsize=12)
+
+            i += 1
+
+    for feature in ['Qdlin', 'Tdlin', 'discharge_dQdV']:
+        for cell in data_dict.keys():
+            ax[i//2, i%2].plot(data_dict[cell]['cycle_dict'][sample_cycle][feature], color=colour_dict[cell])   
+        
+        ax[i//2, i%2].set_xlabel('Index', fontsize=12)
+        ax[i//2, i%2].set_ylabel(name_unit_dict[feature], fontsize=12)
+
+        i += 1
+
+    fig.tight_layout(pad=0.5)
+    plt.savefig(fname="plots/"+fname, bbox_inches='tight')
+    plt.show()
+    
+
 
     
 
