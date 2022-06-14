@@ -475,7 +475,7 @@ def individual_summary_data_exploration(data_dict, fname):
                       'Tavg': r'Average temperature ($^{\circ}C$)', 'Tmin': r'Minimum temperature ($^{\circ}C$)',
                       'Tmax': r'Maximum temperature ($^{\circ}C$)', 'chargetime': r'Charge time (min)'}
     
-    fig, ax = plt.subplots(3, 2, figsize=(12, 12))
+    fig, ax = plt.subplots(3, 2, figsize=(10, 10))
 
     i = 0
     for feature in name_unit_dict.keys():

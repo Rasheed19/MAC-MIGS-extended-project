@@ -474,7 +474,7 @@ def tCCvsCVfrac_state(data_dict):
 
 def TIEVC_state(data_dict):
     '''
-    This function generates the features corresponding to TEIVC, time interval during equal voltage change
+    This function generates the features corresponding to TIEVC, time interval during equal voltage change
     '''
 
     TIEVC_multi_values = []
@@ -654,11 +654,11 @@ def dQdVfeatures(data_dict):
     This function generates dQdV features for 
 
         dQdVpeak_maxloc_ch:   the location of the maximum value of the dQdV vs V curve (charge)
-        dQdVpeak_maxmag_ch:   the amplitude of the maximum value of the dQdV vs V curve (charge)
+        dQdVpeak_maxmag_ch:   the maximum value of the dQdV vs V curve (charge)
         dQdVpeak_maxarea_ch:  the area under the dQdV vs V curve (charge)
 
         dQdVvalley_minloc_di:   the location of the minimum value of the dQdV vs V curve (discharge)
-        dQdVvalley_minmag_di:   the amplitude of the minimum value of the dQdV vs V curve (discharge)
+        dQdVvalley_minmag_di:   the minimum value of the dQdV vs V curve (discharge)
         dQdVvalley_minarea_di:  the area under the dQdV vs V curve (discharge)
     '''
     dQdV_multi_values = []
@@ -695,12 +695,12 @@ def dVdQfeatures(data_dict):
     This function generates dVdQ features for 
 
         dVdQpeak_maxloc_ch:   the location of the maximum value of the dVdQ vs Q curve (charge)
-        dQdVpeak_maxmag_ch:   the amplitude of the maximum value of the dVdQ vs Q curve (charge)
-        dQdVpeak_maxarea_ch:  the area under the dVdQ vs Q curve (charge)
+        dVdQpeak_maxmag_ch:   the maximum value of the dVdQ vs Q curve (charge)
+        dVdQpeak_maxarea_ch:  the area under the dVdQ vs Q curve (charge)
 
         dVdQpeak_maxloc_di:   the location of the maximum value of the dVdQ vs Q curve (discharge)
-        dQdVpeak_maxmag_di:   the amplitude of the maximum value of the dVdQ vs Q curve (discharge)
-        dQdVpeak_maxarea_di:  the area under the dVdQ vs Q curve (discharge)
+        dVdQpeak_maxmag_di:   the maximum value of the dVdQ vs Q curve (discharge)
+        dVdQpeak_maxarea_di:  the area under the dVdQ vs Q curve (discharge)
     '''
     dVdQ_multi_values = []
 
