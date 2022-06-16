@@ -373,13 +373,15 @@ def plot_feature_importance_heatmap(list_of_dataframes, feature_selection_method
         list_of_all_feature_values.append(list_of_feature_values)
 
     fig, ax = plt.subplots(figsize=(len(intersect_of_features)/2, 2))
+    ax.set_xticklabels(intersect_of_features, fontsize=12)
+    ax.set_yticklabels(string_of_dataframes, fontsize=12)
     sns.heatmap(np.array(list_of_all_feature_values).T, vmin=0, vmax=1, xticklabels=intersect_of_features, yticklabels=string_of_dataframes, cmap='viridis', cbar_kws={'label': label}, ax=ax)
     plt.yticks(rotation=0)
 
     plt.savefig(fname="plots/"+fname, bbox_inches='tight')
     plt.show()
 
-def feature_importance_barchart(features, importance, importance_tag, fname):
+def feature_importance_barchart(features, importance, importance_tag, fname, title=None):
 
     df = pd.DataFrame()
     df['Features'] = features 
@@ -392,9 +394,9 @@ def feature_importance_barchart(features, importance, importance_tag, fname):
         ax.annotate(str(np.round(p.get_height(),decimals=2)), (p.get_x()+p.get_width()/2., p.get_height()), ha='center', 
                     va='center', xytext=(0, 10), textcoords='offset points')
     '''
-        
-    ax.set_xlabel('Features', fontsize=12)
+    
     ax.set_ylabel(importance_tag, fontsize=12)
+    ax.set_title(title, fontsize=14)
     plt.savefig(fname="plots/"+"importance_"+fname, bbox_inches='tight')
     plt.show()
 
