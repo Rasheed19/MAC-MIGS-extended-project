@@ -387,7 +387,7 @@ def feature_importance_barchart(features, importance, importance_tag, fname, tit
     df['Features'] = features 
     df[importance_tag] = importance
 
-    ax = df.plot(x='Features', y=importance_tag, kind='bar', figsize=[15, 3], fontsize=11, legend=False, color='purple', alpha=0.8)
+    ax = df.plot(x='Features', y=importance_tag, kind='bar', figsize=[15, 2], fontsize=11, legend=False, color='green', ec='black', xlabel='')
     
     '''
     for p in ax.patches:
@@ -508,12 +508,16 @@ def plot_eol_cell_frequency():
     batch_names = ['Batch 1', 'Batch 2', 'Batch 3']
     cell_frequency = [len(read_data(fname).keys()) for fname in ['batch1_100cycles.pkl', 'batch2_100cycles.pkl', 'batch3_100cycles.pkl']]
 
-    ax[0].barh(batch_names, cell_frequency, color='purple', ec='black')
+    ax[0].barh(batch_names, cell_frequency, color='green', ec='black')
     ax[0].set_xlabel('Frequency', fontsize=12)
 
-    ax[1].hist(utils_noah.cycle_life(read_data('data_100cycles.pkl'))['cycle_life'], color='purple', ec='black')
+    ax[1].hist(utils_noah.cycle_life(read_data('data_100cycles.pkl'))['cycle_life'], color='green', ec='black')
     ax[1].set_xlabel('EOL of cells', fontsize=12)
     ax[1].set_ylabel('Frequency', fontsize=12)
+
+    fig.tight_layout(pad=0.5)
+    plt.savefig(fname="plots/"+"eol_cell_frequency", bbox_inches='tight')
+    plt.show()
 
     
 

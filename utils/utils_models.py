@@ -124,7 +124,7 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
 
         for axis, s, pair in zip(axes.ravel(), ('(train)', '(test)'), ((y_train_true, y_train_pred), (y_test_true, y_test_pred))):
             
-            axis.scatter(pair[0], pair[1], s=100, color='purple', alpha=0.5, zorder=10)
+            axis.scatter(pair[0], pair[1], s=100, color='green', alpha=0.5, zorder=10)
             lims = [
             np.min([axis.get_xlim(), axis.get_ylim()]),  # min of both axes
             np.max([axis.get_xlim(), axis.get_ylim()]),  # max of both axes
@@ -141,7 +141,7 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
             res = pair[0]-pair[1]
             x_min = min(res)
             x_max = max(res)
-            subaxis.hist(res, bins=8, range=(x_min, x_max), density=True, color='purple', alpha=0.8, ec='black')
+            subaxis.hist(res, bins=8, range=(x_min, x_max), density=True, color='green', ec='black')
             subaxis.set_xlabel('Residual', fontsize=12)
             subaxis.set_ylabel('Density', fontsize=12)
 
