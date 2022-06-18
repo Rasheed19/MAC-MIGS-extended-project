@@ -1,5 +1,6 @@
 import os
 import pickle
+import pandas as pd
 from scipy.optimize import curve_fit
 from sklearn.ensemble import ExtraTreesRegressor
 from xgboost import XGBRegressor
@@ -366,6 +367,72 @@ def hyperparameter_tuning(df, estimator, param_grid, scoring, cv, feature_select
 
 
 
+def model_pipeline(df, algo, estimator, param_grid, fname, test_size=0.2, scoring='neg_mean_absolute_percentage_error', cv=3, model_type=None):
+    '''
+    This function implements pipeline for optimal hyper-parameter searching, feature selection and model building.
+
+    Args:
+         df:           data for modelling
+         algo:         type of algorithm for modelling
+         estimator:    model object
+         param_grid:   space of parameters
+         fname:        string to save the results with
+         test_size:    test set size
+         scoring:      scoring function
+         cv:           cross-validation fold size
+         model_type:   type of model (to be used with tree-based model
+    
+    Returns: best feature selection strategy (in terms of proportion), corresponding parameters, and dataframe of metrics
+    '''
+    dict_of_opt_params = {}
+    metric_list = []
+
+    # create a list of k
+    k_list = [1.0, 0.9, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2]
+
+    for k in k_list:
+
+        # search for the best hyper-parameters
+        best_param, _ = hyperparameter_tuning(df=df,
+                                            estimator=estimator,
+                                            param_grid=param_grid,
+                                            scoring=scoring,
+                                            cv=cv,
+                                            feature_selection=True,
+                                            k=k)
+
+        # store the best parameters in the dictionary
+        dict_of_opt_params[k] = best_param
+
+        # use the best parameters to build model 
+        if model_type is None:
+            model, metrics = algo(df=df,
+                                test_size=test_size,
+                                feature_selection=True,
+                                scaling=False,
+                                params=best_param,
+                                plot=True,
+                                fname=fname+str(int(k*100)),
+                                k=k)
+        else:
+            model, metrics = algo(df=df,
+                                test_size=test_size,
+                                feature_selection=True,
+                                scaling=False,
+                                params=best_param,
+                                plot=True,
+                                fname=fname+str(int(k*100)),
+                                model_type=model_type,
+                                k=k)
+        
+        metric_list.append(list(metrics[0].values()) + list(metrics[1].values()))
+
+    metric_data = pd.DataFrame(data=np.array(metric_list), columns=[data + metric for data in ('Train_', 'Test_') for metric in metrics[0].keys()], index=k_list)
+    metric_data.index.name = 'Features used'
+
+    best_k = metric_data['Test_MAPE'].idxmin()
+
+    return best_k, dict_of_opt_params[best_k], metric_data
 
 
 
