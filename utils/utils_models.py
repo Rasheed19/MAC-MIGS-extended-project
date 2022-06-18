@@ -388,7 +388,7 @@ def model_pipeline(df, algo, estimator, param_grid, fname, test_size=0.2, scorin
     metric_list = []
 
     # create a list of k
-    k_list = [1.0, 0.9, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2]
+    k_list = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2]
 
     for k in k_list:
 
