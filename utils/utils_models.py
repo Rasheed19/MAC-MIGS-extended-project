@@ -77,7 +77,7 @@ def metrics_calculator(y_true, y_pred):
                'RMSE': np.sqrt(mean_squared_error(y_true, y_pred)), 'R2 score': r2_score(y_true, y_pred)}
 
 
-def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test_pred, fname, plot_mode=1):
+def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test_pred, fname, title=None, plot_mode=1):
     '''
     A function that plots predicted EOL against experimental EOL.
     Args:
@@ -145,6 +145,33 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
             subaxis.hist(res, bins=8, range=(x_min, x_max), density=True, color='green', ec='black')
             subaxis.set_xlabel('Residual', fontsize=12)
             subaxis.set_ylabel('Density', fontsize=12)
+    
+    elif plot_mode == 2:
+
+        fig, ax = plt.subplots(figsize=(5,5))
+        
+        ax.scatter(y_test_pred, y_test_true, s=100, color='purple', alpha=0.5, zorder=10)
+        lims = [
+        np.min([ax.get_xlim(), ax.get_ylim()]),  # min of both axes
+        np.max([ax.get_xlim(), ax.get_ylim()]),  # max of both axes
+        ]
+        # now plot both limits against each other
+        ax.plot(lims, lims, 'k-', alpha=0.75, zorder=0)
+        ax.set_aspect('equal')
+        ax.set_xlim(lims)
+        ax.set_ylim(lims)
+        ax.set_xlabel('Experimental end-of-life', fontsize=14)
+        ax.set_ylabel('Predicted end-of-life', fontsize=14)
+        ax.set_title(title, fontsize=20)
+
+        subaxis = add_sub_axes(ax, [0.6, 0.15, 0.3, 0.2])
+        res = y_test_true - y_test_pred
+        x_min = min(res)
+        x_max = max(res)
+        subaxis.hist(res, bins=8, range=(x_min, x_max), color='purple', ec='black')
+        subaxis.set_xlabel('Residual', fontsize=12)
+        subaxis.set_ylabel('Frequency', fontsize=12)
+
 
     plt.savefig(fname="plots/"+"pred_vs_true_"+fname, bbox_inches='tight')
     plt.show()
@@ -180,7 +207,7 @@ def repeated_kfold_cross_validation(model, df, n_splits, n_repeats, feature_sele
     cv = RepeatedKFold(n_splits=n_splits, n_repeats=n_repeats, random_state=1)
 
     # define metrics to be used
-    metrics = {'MAE': 'neg_mean_absolute_error', 'MAPE': 'neg_mean_absolute_percentage_error', 'MSE': 'neg_mean_squared_error', 'R2 score': 'r2'}
+    metrics = {'MAE': 'neg_mean_absolute_error', 'MAPE': 'neg_mean_absolute_percentage_error', 'RMSE': 'neg_root_mean_squared_error', 'R2 score': 'r2'}
 
     # calculate scores
     scores = cross_validate(model, X, y, scoring=metrics, cv=cv, n_jobs=-1)
@@ -189,7 +216,7 @@ def repeated_kfold_cross_validation(model, df, n_splits, n_repeats, feature_sele
     return scores
 
 
-def fit_tree_based_regression(df, test_size, feature_selection, scaling, params, plot, fname, model_type='xgb', k=None):
+def fit_tree_based_regression(df, test_size, feature_selection, scaling, params, plot, fname, title=None, model_type='xgb', k=None):
     '''
     A function that fits XGBoost Regression to data.
 
@@ -201,6 +228,7 @@ def fit_tree_based_regression(df, test_size, feature_selection, scaling, params,
               params:             a dictionary of parameters to pass to the regression object
               plot:               a boolean to specify whether to plot feature importance
               fname:              name to save the model
+              title:              plot title
               model_type:         either to fit XGBoost ('xgb') or Extratrees ('ext') regression
               k:                  fraction of features to select if feature selection is set to true
     
@@ -256,8 +284,8 @@ def fit_tree_based_regression(df, test_size, feature_selection, scaling, params,
     # option to plot feature importance, plot the first 30 most important features
     if plot == True:
         features, feature_importance = utils_gn.feature_importance_ordering(df.columns[:-1], model.feature_importances_)
-        utils_gn.feature_importance_barchart(features[:30], feature_importance[:30], 'Normalized feature importance', fname)
-        plot_prediction_experimental(y_train, y_pred_train, y_test, y_pred_test, fname)
+        utils_gn.feature_importance_barchart(features[:30], feature_importance[:30], 'Feature importance', fname)
+        plot_prediction_experimental(y_train, y_pred_train, y_test, y_pred_test, fname, title)
     
     # save the model as pickle file
     with open(os.path.join("models", fname), "wb") as fp:
@@ -266,7 +294,7 @@ def fit_tree_based_regression(df, test_size, feature_selection, scaling, params,
     return model, metrics
 
 
-def fit_nusvr(df, test_size, feature_selection, scaling, params, fname, plot=False, k=None):
+def fit_nusvr(df, test_size, feature_selection, scaling, params, fname, title=None, plot=False, k=None):
     '''
     A function that fits XGBoost Regression to data.
 
@@ -278,6 +306,7 @@ def fit_nusvr(df, test_size, feature_selection, scaling, params, fname, plot=Fal
               params:             a dictionary of parameters to pass to the regression object
               plot:               a boolean to specify whether to plot feature importance
               fname:              name to save the model
+              title:              plot title
               k:                  fraction of features to select if feature selection is set to true
     
     Returns:
@@ -325,11 +354,11 @@ def fit_nusvr(df, test_size, feature_selection, scaling, params, fname, plot=Fal
     
     if params['kernel']=='linear' and plot==True:
         features, feature_importance = utils_gn.feature_importance_ordering(df.columns[:-1], np.abs(np.ravel(model.coef_)))
-        utils_gn.feature_importance_barchart(features[:30], feature_importance[:30], 'Normalized feature weight', fname)
+        utils_gn.feature_importance_barchart(features[:30], feature_importance[:30], 'Feature weight', fname)
 
     # option to plot feature importance, plot the first 30 most important features
     if plot == True:
-        plot_prediction_experimental(y_train, y_pred_train, y_test, y_pred_test, fname)
+        plot_prediction_experimental(y_train, y_pred_train, y_test, y_pred_test, fname, title)
     
     # save the model as pickle file
     with open(os.path.join("models", fname), "wb") as fp:
@@ -367,7 +396,7 @@ def hyperparameter_tuning(df, estimator, param_grid, scoring, cv, feature_select
 
 
 
-def model_pipeline(df, algo, estimator, param_grid, fname, test_size=0.2, scoring='neg_mean_absolute_percentage_error', cv=3, model_type=None):
+def model_pipeline(df, algo, estimator, param_grid, fname, title=None, test_size=0.2, scoring='neg_mean_absolute_percentage_error', cv=3, model_type=None):
     '''
     This function implements pipeline for optimal hyper-parameter searching, feature selection and model building.
 
@@ -377,6 +406,7 @@ def model_pipeline(df, algo, estimator, param_grid, fname, test_size=0.2, scorin
          estimator:    model object
          param_grid:   space of parameters
          fname:        string to save the results with
+         title:              plot title
          test_size:    test set size
          scoring:      scoring function
          cv:           cross-validation fold size
@@ -412,6 +442,7 @@ def model_pipeline(df, algo, estimator, param_grid, fname, test_size=0.2, scorin
                                 scaling=False,
                                 params=best_param,
                                 plot=True,
+                                title=title,
                                 fname=fname+str(int(k*100)),
                                 k=k)
         else:
@@ -421,6 +452,7 @@ def model_pipeline(df, algo, estimator, param_grid, fname, test_size=0.2, scorin
                                 scaling=False,
                                 params=best_param,
                                 plot=True,
+                                title=title,
                                 fname=fname+str(int(k*100)),
                                 model_type=model_type,
                                 k=k)

@@ -3,6 +3,7 @@ import numpy as np
 import os 
 import pickle
 import json
+import h5py
 from scipy.stats import iqr
 from sklearn.feature_selection import VarianceThreshold, SelectKBest, RFE, SelectFromModel, SequentialFeatureSelector, f_regression, mutual_info_regression
 from sklearn.ensemble import RandomForestRegressor
@@ -13,14 +14,215 @@ from functools import reduce
 import seaborn as sns
 from matplotlib import cm
 from utils import utils_models, utils_noah
+from datetime import datetime
 import importlib
 importlib.reload(utils_models)
 importlib.reload(utils_noah)
 
 
+def time_monitor(initial_time=None):
+	''' 
+    This function monitors time from the start of a process to the end of the process
+    '''
+	if not initial_time:
+		initial_time = datetime.now()
+		return initial_time
+	elif initial_time:
+		thour, temp_sec = divmod((datetime.now() - initial_time).total_seconds(), 3600)
+		tmin, tsec = divmod(temp_sec, 60)
+
+		return '%ih %imin and %ss.' % (thour, tmin, round(tsec, 2))
+
+
+def load_data(filename, batch_num, num_cycles=None):
+    ''' 
+    This function loads the downloaded matlab file into a dictionary
+    
+    Args: 
+        filename:     string with the path of the data file
+        batch_number: index of this batch
+        num_cycles:   number of cycles to be loaded
+    
+    Returns a dictionary with data for each cell in the batch
+    '''
+
+    # read the matlab file
+    f = h5py.File(filename, 'r')
+    batch = f['batch']
+
+    # get the number of cells in this batch
+    num_cells = batch['summary'].shape[0]
+
+    # initialize a dictionary to store the result
+    batch_dict = {}
+
+    summary_features = ["IR", "QCharge", "QDischarge", "Tavg", "Tmin", 
+                     "Tmax", "chargetime", "cycle"]
+    cycle_features = ["I", "Qc", "Qd", "Qdlin", "T", "Tdlin", "V", "discharge_dQdV", "t"]
+
+    for i in range(num_cells):
+
+        # decide how many cycles will be loaded
+        if num_cycles is None:
+            loaded_cycles = f[batch['cycles'][i,0]]['I'].shape[0]
+        else:
+            loaded_cycles = min(num_cycles, f[batch['cycles'][i,0]]['I'].shape[0])
+
+        if i % 10 == 0:
+            print("* {} cells loaded ({} cycles)".format(i, loaded_cycles))
+
+        # initialise a dictionary for this cell
+        cell_dict = {}
+
+        # for the data in cycle life    
+        if batch_num != 3:
+            cell_dict["cycle_life"] = f[batch["cycle_life"][i,0]][()]
+        else:
+            # There seems to be an offset for batch 3
+            cell_dict["cycle_life"] = f[batch["cycle_life"][i,0]][()] + 1
+
+        # for the data in policy
+        cell_dict["charge_policy"] = f[batch["policy_readable"][i,0]][()].tobytes()[::2].decode()
+
+        # for the data in summary
+        cell_dict["summary"] = {}
+        for feature in summary_features:
+            cell_dict["summary"][feature] = np.hstack(f[batch['summary'][i,0]][feature][0,:].tolist())
+
+        # for the cycle data
+        cell_dict["cycle_dict"] = {}
+
+        for j in range(loaded_cycles):
+            cell_dict["cycle_dict"][str(j+1)] = {}
+            for feature in cycle_features:
+                cell_dict["cycle_dict"][str(j+1)][feature] = np.hstack( (f[f[batch['cycles'][i,0]][feature][j,0]][()]))
+
+
+        # converge into the batch dictionary
+        batch_dict['b{}c{}'.format(batch_num, i)] = cell_dict
+
+    return batch_dict
+
+def load_and_save_dict_data(num_cycles=None, option=1):
+    '''
+    This function load and save downloaded matlab files as picke files
+
+    Args:
+         num_cycles:  number of cycles to load
+         option:      1: to load all batches in one pickle file, 2: to load each batch and save it in a pickle file separately
+    '''
+
+    # paths for data file with each batch of cells
+    mat_filenames = {
+        "batch1": os.path.join(".","data","2017-05-12_batchdata_updated_struct_errorcorrect.mat"),
+        "batch2": os.path.join(".","data","2017-06-30_batchdata_updated_struct_errorcorrect.mat"),
+        "batch3": os.path.join(".","data","2018-04-12_batchdata_updated_struct_errorcorrect.mat")}
+
+    batches = ["batch1", "batch2", "batch3"]
+
+    start = time_monitor()
+    print("Loading batch 1 data...")
+    batch1 = load_data(mat_filenames["batch1"], 1, num_cycles=num_cycles)
+    print(time_monitor(start))
+
+    start = time_monitor()
+    print("\nLoading batch 2 data...")
+    batch2 = load_data(mat_filenames["batch2"], 2, num_cycles=num_cycles)
+    print(time_monitor(start))
+
+    start = time_monitor()
+    print("\nLoading batch 3 data...")
+    batch3 = load_data(mat_filenames["batch3"], 3, num_cycles=num_cycles)
+    print(time_monitor(start))
+
+    print("* {} cells loaded in batch 1".format(len(batch1.keys())))
+    print("* {} cells loaded in batch 2".format(len(batch2.keys())))
+    print("* {} cells loaded in batch 3".format(len(batch3.keys())))
+
+    # there are four cells from batch1 that carried into batch2, we'll remove the data from batch2 and put it with the correct cell from batch1
+    b2_keys = ['b2c7', 'b2c8', 'b2c9', 'b2c15', 'b2c16']
+    b1_keys = ['b1c0', 'b1c1', 'b1c2', 'b1c3', 'b1c4']
+    add_len = [662, 981, 1060, 208, 482]
+
+    # append data to batch 1
+    for i, bk in enumerate(b1_keys):
+        batch1[bk]['cycle_life'] = batch1[bk]['cycle_life'] + add_len[i]
+        
+        for j in batch1[bk]['summary'].keys():
+            if j == 'cycle':
+                batch1[bk]['summary'][j] = np.hstack(
+                    (batch1[bk]['summary'][j], 
+                    batch2[b2_keys[i]]['summary'][j] + len(batch1[bk]['summary'][j])))
+            else:
+                batch1[bk]['summary'][j] = np.hstack(
+                    (batch1[bk]['summary'][j], 
+                    batch2[b2_keys[i]]['summary'][j]))
+                
+        last_cycle = len(batch1[bk]['cycle_dict'].keys())
+
+        # useful when all cycles loaded
+        if num_cycles is None:
+            for j, jk in enumerate(batch2[b2_keys[i]]['cycle_dict'].keys()):
+                batch1[bk]['cycle_dict'][str(last_cycle + j)] = batch2[b2_keys[i]]['cycle_dict'][jk]
+    '''
+    The authors exclude cells that:
+        * do not reach 80% capacity (batch 1)
+        * were carried into batch2 but belonged to batch 1 (batch 2)
+        * noisy channels (batch 3)
+    '''
+
+    exc_cells = {}
+    exc_cells["batch1"] = ["b1c8", "b1c10", "b1c12", "b1c13", "b1c22"]
+    exc_cells["batch2"] = ["b2c7", "b2c8", "b2c9", "b2c15", "b2c16"]
+    exc_cells["batch3"] = ["b3c37", "b3c2", "b3c23", "b3c32", "b3c38", "b3c39"]
+
+    for c in exc_cells["batch1"]:
+        del batch1[c]
+        
+    for c in exc_cells["batch2"]:
+        del batch2[c]
+        
+    for c in exc_cells["batch3"]:
+        del batch3[c]
+    
+    # exclude the first cycle from all cells because this data was not part of the first batch of cells
+    for batch in [batch1, batch2, batch3]:
+       for cell in batch.keys():
+          del batch[cell]['cycle_dict']['1']
+        
+    for batch in [batch1, batch2, batch3]:
+        for cell in batch.keys():
+            assert '1' not in batch[cell]['cycle_dict'].keys()
+            
+    for batch in [batch1, batch2, batch3]:
+        for cell in batch.keys():
+            for feat in batch[cell]['summary'].keys():
+                batch[cell]['summary'][feat] = np.delete(batch[cell]['summary'][feat], 0)
+    
+    if num_cycles is None:
+        filename_suffix = 'all.pkl'
+    else:
+        filename_suffix = str(num_cycles) + 'cycles.pkl'
+
+    
+    if option == 1:
+
+        # combine all 3 batches in one dictionary
+        data_dict = {**batch1, **batch2, **batch3}
+        
+        # save the dict as a picle file
+        with open(os.path.join("data", "data_" + filename_suffix), "wb") as fp:
+            pickle.dump(data_dict, fp)
+    
+    elif option == 2:
+        # save the batch separately
+        for i, batch in zip(('1', '2', '3'), (batch1, batch2, batch3)):
+            with open(os.path.join("data", "batch" + i + '_' + filename_suffix), "wb") as fp:
+                pickle.dump(batch, fp)
+    
+    
 def read_data(fname, folder="data"):
     # Load pickle data
-
     with open(os.path.join(folder, fname), "rb") as fp:
         df = pickle.load(fp)
     
