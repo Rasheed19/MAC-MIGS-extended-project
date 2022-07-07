@@ -219,7 +219,44 @@ def load_and_save_dict_data(num_cycles=None, option=1):
         for i, batch in zip(('1', '2', '3'), (batch1, batch2, batch3)):
             with open(os.path.join("data", "batch" + i + '_' + filename_suffix), "wb") as fp:
                 pickle.dump(batch, fp)
+
+
+def split_train_validate_test(df, val_ratio, test_ratio):
+    np.random.seed(42)
+    shuffled_indices = np.random.permutation(len(df))
+    val_set_size = int(len(df) * val_ratio)
+    test_set_size = int(len(df) * test_ratio)
+
+    val_indices = shuffled_indices[:val_set_size]
+    test_indices = shuffled_indices[val_set_size:val_set_size+test_set_size]
+    train_indices = shuffled_indices[val_set_size+test_set_size:]
+
+    return df.iloc[train_indices], df.iloc[val_indices], df.iloc[test_indices] 
     
+
+def balance_batches(df,
+                    val_ratio,
+                    test_ratio,
+                    feature_selection=True,
+                    k=None
+                    ):
+    
+    if feature_selection == True:
+        df, _, _, _ = univariate_feature_selection(df, num_of_features_after_ordering=100, k=k)
+
+    batches = ['b1', 'b2', 'b3']
+    df_train = pd.DataFrame(columns=df.columns)
+    df_val = pd.DataFrame(columns=df.columns)
+    df_test = pd.DataFrame(columns=df.columns)
+    
+    for batch in batches:
+        batch_subdata = df[[df.index[i][:2] == batch for i in range(len(df.index))]]
+        train, val, test = split_train_validate_test(batch_subdata, val_ratio, test_ratio)
+        df_train = pd.concat([df_train, train])
+        df_val = pd.concat([df_val, val])
+        df_test = pd.concat([df_test, test])
+    
+    return {'train': df_train, 'validate': df_val, 'test': df_test}
     
 def read_data(fname, folder="data"):
     # Load pickle data
@@ -420,7 +457,7 @@ def univariate_feature_selection(df, num_of_features_after_ordering=100, k=0.8):
     ufs = SelectKBest(score_func=f_regression, k=int(k*X.shape[1])).fit(X, y)
 
     # get the support 
-    #support = ufs.get_support()
+    support = ufs.get_support()
 
     # transform X 
     X_reduced = ufs.transform(X)
@@ -428,9 +465,12 @@ def univariate_feature_selection(df, num_of_features_after_ordering=100, k=0.8):
     print("{} features removed from a total of {}".format(X.shape[1] - X_reduced.shape[1], X.shape[1]))
 
     # order the features from highest to least important
-    ordered_features, ordered_importance = feature_importance_ordering(df.columns[:-1], ufs.scores_)
+    features = df.columns[:-1]
+    ordered_features, ordered_importance = feature_importance_ordering(features, ufs.scores_)
+    df_reduced = df[features[support]]
+    df_reduced[df.columns[-1]] = df[df.columns[-1]].values
 
-    return X_reduced, ordered_features[:num_of_features_after_ordering], ordered_importance[:num_of_features_after_ordering]
+    return df_reduced, X_reduced, ordered_features[:num_of_features_after_ordering], ordered_importance[:num_of_features_after_ordering]
 
 
 def recursive_feature_selection(df, num_of_features_after_ordering, n_features_to_select=None):
@@ -581,7 +621,6 @@ def plot_feature_importance_heatmap(list_of_dataframes, feature_selection_method
     plt.yticks(rotation=0)
 
     plt.savefig(fname="plots/"+fname, bbox_inches='tight')
-    plt.show()
 
 def feature_importance_barchart(features, importance, importance_tag, fname, title=None):
 
@@ -600,7 +639,6 @@ def feature_importance_barchart(features, importance, importance_tag, fname, tit
     ax.set_ylabel(importance_tag, fontsize=12)
     ax.set_title(title, fontsize=14)
     plt.savefig(fname="plots/"+"importance_"+fname, bbox_inches='tight')
-    plt.show()
 
 def dict_of_colours(data_dict):
     '''
