@@ -1,3 +1,4 @@
+from posixpath import split
 import pandas as pd
 import numpy as np
 import os 
@@ -221,24 +222,36 @@ def load_and_save_dict_data(num_cycles=None, option=1):
                 pickle.dump(batch, fp)
 
 
-def split_train_validate_test(df, val_ratio, test_ratio):
+def split_train_validate_test(df, test_ratio, val_ratio=None, split_mode=1):
     np.random.seed(42)
-    shuffled_indices = np.random.permutation(len(df))
-    val_set_size = int(len(df) * val_ratio)
-    test_set_size = int(len(df) * test_ratio)
 
-    val_indices = shuffled_indices[:val_set_size]
-    test_indices = shuffled_indices[val_set_size:val_set_size+test_set_size]
-    train_indices = shuffled_indices[val_set_size+test_set_size:]
+    if split_mode == 0:
+        shuffled_indices = np.random.permutation(len(df))
+        val_set_size = int(len(df) * val_ratio)
+        test_set_size = int(len(df) * test_ratio)
 
-    return df.iloc[train_indices], df.iloc[val_indices], df.iloc[test_indices] 
+        val_indices = shuffled_indices[:val_set_size]
+        test_indices = shuffled_indices[val_set_size:val_set_size+test_set_size]
+        train_indices = shuffled_indices[val_set_size+test_set_size:]
+
+        return df.iloc[train_indices], df.iloc[val_indices], df.iloc[test_indices] 
     
+    elif split_mode == 1:
+        shuffled_indices = np.random.permutation(len(df))
+        test_set_size = int(len(df) * test_ratio)
+
+        test_indices = shuffled_indices[:test_set_size]
+        train_indices = shuffled_indices[test_set_size:]
+
+        return df.iloc[train_indices], df.iloc[test_indices] 
+           
 
 def balance_batches(df,
-                    val_ratio,
                     test_ratio,
+                    val_ratio=None,
                     feature_selection=True,
-                    k=None
+                    k=None,
+                    split_mode=1,
                     ):
     
     if feature_selection == True:
@@ -249,14 +262,25 @@ def balance_batches(df,
     df_val = pd.DataFrame(columns=df.columns)
     df_test = pd.DataFrame(columns=df.columns)
     
-    for batch in batches:
-        batch_subdata = df[[df.index[i][:2] == batch for i in range(len(df.index))]]
-        train, val, test = split_train_validate_test(batch_subdata, val_ratio, test_ratio)
-        df_train = pd.concat([df_train, train])
-        df_val = pd.concat([df_val, val])
-        df_test = pd.concat([df_test, test])
+    if split_mode==0:
+        for batch in batches:
+            batch_subdata = df[[df.index[i][:2] == batch for i in range(len(df.index))]]
+            train, val, test = split_train_validate_test(batch_subdata, val_ratio, test_ratio, split_mode)
+            df_train = pd.concat([df_train, train])
+            df_val = pd.concat([df_val, val])
+            df_test = pd.concat([df_test, test])
+
+        return {'train': df_train, 'validate': df_val, 'test': df_test}
     
-    return {'train': df_train, 'validate': df_val, 'test': df_test}
+    elif split_mode==1:
+        for batch in batches:
+            batch_subdata = df[[df.index[i][:2] == batch for i in range(len(df.index))]]
+            train, test = split_train_validate_test(batch_subdata, val_ratio, split_mode)
+            df_train = pd.concat([df_train, train])
+            df_test = pd.concat([df_test, test])
+
+        return {'train': df_train, 'test': df_test}
+
     
 def read_data(fname, folder="data"):
     # Load pickle data
@@ -467,8 +491,8 @@ def univariate_feature_selection(df, num_of_features_after_ordering=100, k=0.8):
     # order the features from highest to least important
     features = df.columns[:-1]
     ordered_features, ordered_importance = feature_importance_ordering(features, ufs.scores_)
-    df_reduced = df[features[support]]
-    df_reduced[df.columns[-1]] = df[df.columns[-1]].values
+    df_reduced = df[features[support]].copy()
+    df_reduced[df.columns[-1]] = df[df.columns[-1]].copy()
 
     return df_reduced, X_reduced, ordered_features[:num_of_features_after_ordering], ordered_importance[:num_of_features_after_ordering]
 

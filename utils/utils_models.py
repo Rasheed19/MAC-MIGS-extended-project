@@ -3,10 +3,12 @@ import pickle
 import pandas as pd
 from scipy.optimize import curve_fit
 from scipy import stats
-from sklearn.ensemble import ExtraTreesRegressor
+from sklearn.ensemble import ExtraTreesRegressor, RandomForestRegressor
+from sklearn.tree import DecisionTreeRegressor
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 import xgboost as xgb
+from sklearn.linear_model import LinearRegression
 from sklearn.svm import NuSVR
 from sklearn.model_selection import RepeatedKFold, GridSearchCV, cross_validate, train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error, r2_score
@@ -118,8 +120,8 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
             ax[i].set_aspect('equal')
             ax[i].set_xlim(lims)
             ax[i].set_ylim(lims)
-            ax[i].set_xlabel('Experimental EOL ' + s, fontsize=12)
-            ax[i].set_ylabel('Predicted EOL ' + s, fontsize=12)
+            ax[i].set_xlabel('Experimental end-of-life ' + s, fontsize=12)
+            ax[i].set_ylabel('Predicted end-of-life ' + s, fontsize=12)
 
     elif plot_mode == 1:
 
@@ -137,8 +139,8 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
             axis.set_aspect('equal')
             axis.set_xlim(lims)
             axis.set_ylim(lims)
-            axis.set_xlabel('Experimental EOL ' + s, fontsize=12)
-            axis.set_ylabel('Predicted EOL ' + s, fontsize=12)
+            axis.set_xlabel('Experimental end-of-life ' + s, fontsize=12)
+            axis.set_ylabel('Predicted end-of-life ' + s, fontsize=12)
 
             subaxis = add_sub_axes(axis, [0.6, 0.25, 0.3, 0.2])
             res = pair[0]-pair[1]
@@ -190,8 +192,8 @@ def plot_prediction_experimental(y_train_true, y_train_pred, y_test_true, y_test
             axis.set_aspect('equal')
             axis.set_xlim(lims)
             axis.set_ylim(lims)
-            axis.set_xlabel('Experimental EOL ' + s, fontsize=14)
-            axis.set_ylabel('Predicted EOL ' + s, fontsize=14)
+            axis.set_xlabel('Experimental End-of-life ' + s, fontsize=14)
+            axis.set_ylabel('Predicted End-of-life ' + s, fontsize=14)
 
             subaxis = add_sub_axes(axis, [0.6, 0.3, 0.3, 0.2])
             res = pair[0]-pair[1]
@@ -248,6 +250,86 @@ def repeated_kfold_cross_validation(model, df, n_splits, n_repeats, feature_sele
     return scores
 
 
+def fit_linear_regression(df, scaling, params, fname, model_type='least_square', title=None, plot=False, verbose=0):
+    '''
+    A function that fits XGBoost Regression to data.
+
+    Arguments:
+              df:                 pandas dataframe that contains the features and the target
+              scaling:            a boolean to specify whether to perform data scaling or not
+              params:             a dictionary of parameters to pass to the regression object
+              plot:               a boolean to specify whether to plot feature importance
+              fname:              name to save the model
+              model_type:         type of linear model to be fitted
+                                  'nusvr': Nu Support Vector Regression
+                                  'least_square': Ordinary Least Square Regression 
+              title:              plot title
+              verbose:            controls the amout of infomation printed on the screen during training
+    
+    Returns:
+             model object and print dictionary of metrics (mae, mape, mse, rmse, r2, correlation coefficient)
+              
+    '''
+
+    # get the features and the target 
+    label = df['train'].columns[-1]
+    X_train, y_train = df['train'].drop(label, axis=1).values, df['train'][label].values
+    X_test, y_test = df['test'].drop(label, axis=1).values, df['test'][label].values
+    
+    # scaling option
+    if scaling == True:
+        sc = StandardScaler()
+        sc = sc.fit(X_train)
+        X_train = sc.transform(X_train)
+        X_test = sc.transform(X_test)
+
+    # fit the model and get the feature importances 
+    print("NuSVR training has started...") 
+    start_time = time.time()
+
+    if model_type == 'nusvr':
+        model = NuSVR(**params)
+        
+    elif model_type == 'least_square':
+        model = LinearRegression(**params)
+
+    model = model.fit(X_train, y_train)
+        
+    # make predictions
+    y_pred_train = model.predict(X_train)  # for the train
+    y_pred_test = model.predict(X_test)   # for the test
+
+    end_time = time.time()
+    print('NuSVR training has ended after {} seconds'.format(np.round(end_time - start_time, 2)))
+    
+   # calculate metrics 
+    metrics = metrics_calculator(y_train, y_pred_train), metrics_calculator(y_test, y_pred_test)
+
+    if verbose > 0:
+        print('------------------')
+        print('Model metrics:')
+        print('------------------')
+        print('Train:')
+        pprint.pprint(metrics[0])
+        print('Test:')
+        pprint.pprint(metrics[1])
+    
+    if model_type == 'nusvr':
+        if params['kernel']=='linear' and plot==True:
+            features, feature_importance = utils_gn.feature_importance_ordering(df['train'].columns[:-1], np.abs(np.ravel(model.coef_)))
+            utils_gn.feature_importance_barchart(features[:30], feature_importance[:30], 'Feature weight', fname)
+
+    # option to plot feature importance, plot the first 30 most important features
+    if plot == True:
+        plot_prediction_experimental(y_train, y_pred_train, y_test, y_pred_test, fname, title)
+    
+    # save the model as pickle file
+    with open(os.path.join("models", fname), "wb") as fp:
+        pickle.dump(model, fp)
+    
+    return model, metrics
+
+
 def fit_tree_based_regression(df, scaling, params, plot, fname, title=None, model_type='xgb', verbose=0):
     '''
     A function that fits XGBoost Regression to data.
@@ -259,12 +341,12 @@ def fit_tree_based_regression(df, scaling, params, plot, fname, title=None, mode
               plot:               a boolean to specify whether to plot feature importance
               fname:              name to save the model
               title:              plot title
-              model_type:         either to fit XGBoost ('xgb') or Extratrees ('ext') regression
+              model_type:         either to fit Decsiion Trees ('decision_trees), Random Forest ('random_forest'), XGBoost ('xgb'), Extratrees ('ext') regression
               k:                  fraction of features to select if feature selection is set to true
               verbose:            controls the amout of infomation printed on the screen during training
     
     Returns:
-            model object and print dictionary of metrics(mae, mape, mse, rmse, r2)
+            model object and print dictionary of metrics (mae, mape, mse, rmse, r2, correlation coefficient)
               
     '''
 
@@ -287,8 +369,14 @@ def fit_tree_based_regression(df, scaling, params, plot, fname, title=None, mode
     if model_type == 'xgb':
         model = XGBRegressor(**params)
     
-    if model_type == 'ext':
+    elif model_type == 'ext':
         model = ExtraTreesRegressor(**params)
+    
+    elif model_type == 'decision_trees':
+        model = DecisionTreeRegressor(**params)
+    
+    elif model_type == 'random_forest':
+        model = RandomForestRegressor(**params)
 
     model = model.fit(X_train, y_train)
     
@@ -325,75 +413,6 @@ def fit_tree_based_regression(df, scaling, params, plot, fname, title=None, mode
     return model, metrics
 
 
-def fit_nusvr(df, scaling, params, fname, title=None, plot=False, verbose=0):
-    '''
-    A function that fits XGBoost Regression to data.
-
-    Arguments:
-              df:                 pandas dataframe that contains the features and the target
-              scaling:            a boolean to specify whether to perform data scaling or not
-              params:             a dictionary of parameters to pass to the regression object
-              plot:               a boolean to specify whether to plot feature importance
-              fname:              name to save the model
-              title:              plot title
-              verbose:            controls the amout of infomation printed on the screen during training
-    
-    Returns:
-            model object and print dictionary of metrics(mae, mape, mse, rmse, r2)
-              
-    '''
-
-    # get the features and the target 
-    label = df['train'].columns[-1]
-    X_train, y_train = df['train'].drop(label, axis=1).values, df['train'][label].values
-    X_test, y_test = df['test'].drop(label, axis=1).values, df['test'][label].values
-    
-    # scaling option
-    if scaling == True:
-        sc = StandardScaler()
-        sc = sc.fit(X_train)
-        X_train = sc.transform(X_train)
-        X_test = sc.transform(X_test)
-
-    # fit the model and get the feature importances 
-    print("NuSVR training has started...") 
-    start_time = time.time()
-
-    model = NuSVR(**params)
-    model = model.fit(X_train, y_train)
-        
-    # make predictions
-    y_pred_train = model.predict(X_train)  # for the train
-    y_pred_test = model.predict(X_test)   # for the test
-
-    end_time = time.time()
-    print('NuSVR training has ended after {} seconds'.format(np.round(end_time - start_time, 2)))
-    
-   # calculate metrics 
-    metrics = metrics_calculator(y_train, y_pred_train), metrics_calculator(y_test, y_pred_test)
-
-    if verbose > 0:
-        print('------------------')
-        print('Model metrics:')
-        print('------------------')
-        print('Train:')
-        pprint.pprint(metrics[0])
-        print('Test:')
-        pprint.pprint(metrics[1])
-    
-    if params['kernel']=='linear' and plot==True:
-        features, feature_importance = utils_gn.feature_importance_ordering(df['train'].columns[:-1], np.abs(np.ravel(model.coef_)))
-        utils_gn.feature_importance_barchart(features[:30], feature_importance[:30], 'Feature weight', fname)
-
-    # option to plot feature importance, plot the first 30 most important features
-    if plot == True:
-        plot_prediction_experimental(y_train, y_pred_train, y_test, y_pred_test, fname, title)
-    
-    # save the model as pickle file
-    with open(os.path.join("models", fname), "wb") as fp:
-        pickle.dump(model, fp)
-    
-    return model, metrics
 
 def hyperparameter_tuning(df, estimator, param_grid, scoring, cv, scaling=True):
     '''
@@ -411,8 +430,9 @@ def hyperparameter_tuning(df, estimator, param_grid, scoring, cv, scaling=True):
     Returns: best parameter setting, best score
     '''
     # get the features and the target 
-    label = df['validate'].columns[-1]
-    X, y = df['validate'].drop(label, axis=1).values, df['validate'][label].values
+    label = df['train'].columns[-1]
+    X, y = df['train'].drop(label, axis=1).values, df['train'][label].values
+    
     
     # scaling option
     if scaling == True:
@@ -433,13 +453,13 @@ def model_pipeline(df,
                 estimator,
                 param_grid,
                 fname,
+                model_type,
                 feature_selection=True,
                 val_ratio=0.2,
                 test_ratio=0.2,
                 title=None,
                 scoring='neg_mean_absolute_percentage_error',
-                cv=3, 
-                model_type=None,
+                cv=3,
                 scaling=None,
                 k_list = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]
                 ):
@@ -452,13 +472,13 @@ def model_pipeline(df,
          estimator:          model object
          param_grid:         space of parameters
          fname:              string to save the results with
+         model_type:         type of model
          feature_selection:  a boolean either to perform feature selection or not
          val_ratio:          ratio of validation set
          test_ratio:         ratio of test set
          title:              plot title
          scoring:            scoring function
          cv:                 cross-validation fold size
-         model_type:         type of model (to be used with tree-based model
          scaling:            a boolean either to scale features or not
          k_list:             a list containing fractions of features to be extracted from features selection process
     
@@ -487,21 +507,13 @@ def model_pipeline(df,
         dict_of_opt_params[k] = best_param
 
         # use the best parameters to build model 
-        if model_type is None:
-            model, metrics = algo(df=bl_df,
-                                scaling=scaling,
-                                params=best_param,
-                                plot=True,
-                                title=title,
-                                fname=fname+str(int(k*100)))
-        else:
-            model, metrics = algo(df=bl_df,
-                                scaling=scaling,
-                                params=best_param,
-                                plot=True,
-                                title=title,
-                                fname=fname+str(int(k*100)),
-                                model_type=model_type)
+        model, metrics = algo(df=bl_df,
+                            scaling=scaling,
+                            params=best_param,
+                            plot=True,
+                            title=title,
+                            fname=fname+str(int(k*100)),
+                            model_type=model_type)
         
         metric_list.append(list(metrics[0].values()) + list(metrics[1].values()))
 
