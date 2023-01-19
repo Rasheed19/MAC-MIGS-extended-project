@@ -20,7 +20,7 @@ def multi_cycle_features(feature_values_list):
     # y_0, y_50, y_100, y_100m0, y_diff as defined in Noah et. al paper
     y_0 = np.median(feature_values_list[:10])
     y_50 = np.median(feature_values_list[44:54])
-    y_100 = np.median(feature_values_list[90:100])
+    y_100 = np.median(feature_values_list[90:])
     y_100m0 = y_100 - y_0
     y_diff = (y_100 - y_50) - (y_50 - y_0)
 
