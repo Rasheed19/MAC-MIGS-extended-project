@@ -300,7 +300,7 @@ def fit_linear_regression(df, scaling, params, fname, model_type='least_square',
     y_pred_test = model.predict(X_test)   # for the test
 
     end_time = time.time()
-    print('NuSVR training has ended after {} seconds'.format(np.round(end_time - start_time, 2)))
+    print('linear model training has ended after {} seconds'.format(np.round(end_time - start_time, 2)))
     
    # calculate metrics 
     metrics = metrics_calculator(y_train, y_pred_train), metrics_calculator(y_test, y_pred_test)
