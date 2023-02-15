@@ -252,7 +252,7 @@ def repeated_kfold_cross_validation(model, df, n_splits, n_repeats, feature_sele
 
 def fit_linear_regression(df, scaling, params, fname, model_type='least_square', title=None, plot=False, verbose=0):
     '''
-    A function that fits XGBoost Regression to data.
+    A function that fits some linear regression models to data.
 
     Arguments:
               df:                 pandas dataframe that contains the features and the target
@@ -284,7 +284,7 @@ def fit_linear_regression(df, scaling, params, fname, model_type='least_square',
         X_test = sc.transform(X_test)
 
     # fit the model and get the feature importances 
-    print("NuSVR training has started...") 
+    print("linear model training has started...") 
     start_time = time.time()
 
     if model_type == 'nusvr':
@@ -332,7 +332,7 @@ def fit_linear_regression(df, scaling, params, fname, model_type='least_square',
 
 def fit_tree_based_regression(df, scaling, params, plot, fname, title=None, model_type='xgb', verbose=0):
     '''
-    A function that fits XGBoost Regression to data.
+    A function that fits some tree-based models to data.
 
     Arguments:
               df:                 pandas dataframe that contains the features and the target
@@ -363,7 +363,7 @@ def fit_tree_based_regression(df, scaling, params, plot, fname, title=None, mode
         X_test = sc.transform(X_test)
     
     # fit the model and get the feature importances 
-    print("Tree-based regression has started...") 
+    print("tree-based regression has started...") 
     start_time = time.time()
     
     if model_type == 'xgb':
